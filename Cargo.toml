@@ -20,3 +20,10 @@ magnus = "0.9.3"
 rb-sys = "0.9.130"
 rb-sys-build = "0.9.130"
 rb-sys-env = "0.2.3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
