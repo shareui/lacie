@@ -1,0 +1,15 @@
+name = "github"
+id = "lacie.github"
+author = "shareui"
+version = "0.1.0"
+version_number = 1
+links = ["https://github.com"]
+source_code = "https://github.com/shareui/lacie"
+
+api = 1
+entry = "github.rb"
+capabilities = ["search", "stars", "dates"]
+env = ["LACIE_GH_TOKEN"]
+
+[[files]]
+path = "github.rb"

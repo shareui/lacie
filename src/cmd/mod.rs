@@ -1,0 +1,17 @@
+pub mod add;
+pub mod completions;
+pub mod config;
+pub mod doctor;
+pub mod export_import;
+pub mod freeze;
+pub mod gen_toml;
+pub mod info;
+pub mod init;
+pub mod list;
+pub mod remove;
+pub mod rename;
+pub mod source;
+pub mod suicide;
+pub mod switch;
+pub mod update;
+pub mod validate;

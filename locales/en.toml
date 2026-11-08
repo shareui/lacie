@@ -1,0 +1,123 @@
+[general]
+yes = "y"
+no = "n"
+ok = "ok"
+
+[cmd_init]
+lacie_dir = "lacie directory: {dir}"
+lacie_dir_desc = "lacie works only in this directory, all its files are stored here."
+q1_title = "[1/5] Language"
+q1_opt1 = "1. Auto (system, falls back to English)"
+q1_opt2 = "2. English"
+q1_opt3 = "3. Russian"
+q1_prompt = "Select [{default}]:"
+q2_title = "[2/5] Colors"
+q2_opt1 = "1. Terminal settings"
+q2_opt2 = "2. Always lacie colors"
+q2_opt3 = "3. No colors"
+q2_prompt = "Select [{default}]:"
+q3_title = "[3/5] Verify sha256 of packages (when a package provides a hash)?"
+q3_prompt = "[Y/n]:"
+q4_title = "[4/5] Add {dir} to PATH via {file}?"
+q4_prompt = "[Y/n]:"
+q5_title = "[5/5] Switch to the new version when a new package version is installed?"
+q5_note = "(no: the active link stays on the old version)"
+q5_prompt = "[Y/n]:"
+created = "Created"
+updated = "Updated"
+done = "Done. Restart your shell or run `{command}`."
+
+[cmd_explain]
+solutions_header = "Solutions:"
+directory_to_add = "Directory to add:"
+how_to_fix = "How to fix:"
+
+[cmd_switch]
+switched_single = "Switched {name} to {version}"
+switched_multi = "Switched {count} packages:"
+switched_item = "{name} to {version}"
+
+[cmd_remove]
+remove_prompt = "Remove {count} packages?"
+removed_count = "Removed {count} packages."
+nothing_to_remove = "Nothing to remove."
+
+[cmd_freeze]
+frozen = "Frozen {name} {version}"
+unfrozen = "Unfrozen {name} {version}"
+already_frozen = "{name} is already frozen"
+not_frozen = "{name} is not frozen"
+no_active_version = "{name} has no active version to freeze"
+no_frozen_packages = "No frozen packages."
+
+[cmd_rename]
+renamed = "Command name of {package}: {old} -> {new}"
+renamed_default = "Command name of {package}: {old} -> {new} (default)"
+renamed_inactive = "Command name of {package}: {old} -> {new} (applied when the package is activated)"
+
+[cmd_source]
+source_label = "Source"
+version_label = "Version"
+author_label = "Author"
+origin_label = "Origin"
+api_label = "API"
+capabilities_label = "Capabilities"
+files_label = "Files"
+status_label = "Status"
+added_label = "Added"
+packages_label = "Packages"
+sha256_label = "SHA256"
+add_prompt = "Add this source? [y/N]:"
+update_prompt = "Update {count} source? [Y/n]:"
+update_prompt_plural = "Update {count} sources? [Y/n]:"
+remove_prompt = "Remove source {source} ({count} packages installed from it)? [y/N]:"
+disabled = "Disabled {name}"
+enabled = "Enabled {name}"
+removed = "Removed {name}"
+up_to_date = "All sources are up to date."
+builtin_note = "Built-in: {name} (updated together with lacie)"
+updates_available = "Updates available ({count}):"
+no_sources = "No sources installed."
+
+[cmd_list]
+no_packages = "No packages installed."
+no_matches = "No matches."
+
+[cmd_info]
+author_label = "Author"
+version_label = "Version"
+source_code_label = "Source code"
+links_label = "Links"
+command_label = "Command"
+installed_versions_label = "Installed versions"
+installed_label = "Installed"
+released_label = "Released"
+source_label = "Source"
+sha256_label = "SHA256"
+
+[cmd_doctor]
+check_header = "CHECK"
+status_header = "STATUS"
+details_header = "DETAILS"
+repair_hint = "{problems} problems, {warnings} warning. Run `lacie doctor --fix` to repair."
+
+[cmd_gen_toml]
+created = "Created lacie.toml"
+overwrite_prompt = "Overwrite lacie.toml? [y/N]:"
+
+[cmd_config]
+differs_note = "* differs from default"
+reset_prompt = "Reset all configuration options to defaults? [y/N]:"
+
+[cmd_suicide]
+will_be_removed = "lacie will be removed completely:"
+directory_label = "Directory"
+binary_label = "Binary"
+path_label = "PATH"
+scripts_label = "Scripts"
+prompt = "Remove lacie? [y/N]:"
+
+[test_fallback]
+only_in_en = "English fallback"
+
+

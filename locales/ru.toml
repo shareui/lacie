@@ -1,0 +1,118 @@
+[general]
+yes = "y"
+no = "n"
+ok = "ok"
+
+[cmd_init]
+lacie_dir = "директория lacie: {dir}"
+lacie_dir_desc = "lacie работает только внутри неё, все файлы лежат здесь."
+q1_title = "[1/5] Язык"
+q1_opt1 = "1. Авто (язык системы, если не поддерживается — английский)"
+q1_opt2 = "2. Английский"
+q1_opt3 = "3. Русский"
+q1_prompt = "Выбор [{default}]:"
+q2_title = "[2/5] Цвета"
+q2_opt1 = "1. Настройки терминала"
+q2_opt2 = "2. Всегда собственные цвета lacie"
+q2_opt3 = "3. Без цветов"
+q2_prompt = "Выбор [{default}]:"
+q3_title = "[3/5] Проверять sha256 пакетов (если хэш указан в манифесте релиза)?"
+q3_prompt = "[Y/n]:"
+q4_title = "[4/5] Добавить {dir} в PATH через {file}?"
+q4_prompt = "[Y/n]:"
+q5_title = "[5/5] Переключать активную версию при установке новой?"
+q5_note = "(нет: ссылка остаётся на прежней версии)"
+q5_prompt = "[Y/n]:"
+created = "Создано"
+updated = "Обновлено"
+done = "Готово. Перезапустите терминал или выполните `{command}`."
+
+[cmd_explain]
+solutions_header = "Варианты решения:"
+directory_to_add = "Директория для добавления:"
+how_to_fix = "Как исправить:"
+
+[cmd_switch]
+switched_single = "Переключен {name} на {version}"
+switched_multi = "Переключено пакетов ({count}):"
+switched_item = "{name} на {version}"
+
+[cmd_remove]
+remove_prompt = "Удалить {count} пакетов?"
+removed_count = "Удалено пакетов: {count}."
+nothing_to_remove = "Нечего удалять."
+
+[cmd_freeze]
+frozen = "Заморожен {name} {version}"
+unfrozen = "Разморожен {name} {version}"
+already_frozen = "{name} уже заморожен"
+not_frozen = "{name} не заморожен"
+no_active_version = "У {name} нет активной версии для заморозки"
+no_frozen_packages = "Нет замороженных пакетов."
+
+[cmd_rename]
+renamed = "Имя команды {package}: {old} -> {new}"
+renamed_default = "Имя команды {package}: {old} -> {new} (по умолчанию)"
+renamed_inactive = "Имя команды {package}: {old} -> {new} (применится при активации пакета)"
+
+[cmd_source]
+source_label = "Источник"
+version_label = "Версия"
+author_label = "Автор"
+origin_label = "Откуда"
+api_label = "API"
+capabilities_label = "Возможности"
+files_label = "Файлы"
+status_label = "Статус"
+added_label = "Добавлен"
+packages_label = "Пакеты"
+sha256_label = "SHA256"
+add_prompt = "Добавить этот источник? [y/N]:"
+update_prompt = "Обновить источник {count}? [Y/n]:"
+update_prompt_plural = "Обновить источники ({count})? [Y/n]:"
+remove_prompt = "Удалить источник {source} (из него установлено {count} пакетов)? [y/N]:"
+disabled = "Отключен {name}"
+enabled = "Включен {name}"
+removed = "Удален {name}"
+up_to_date = "Все источники обновлены."
+builtin_note = "Встроенный: {name} (обновляется вместе с lacie)"
+updates_available = "Доступны обновления ({count}):"
+no_sources = "Источники не установлены."
+
+[cmd_list]
+no_packages = "Пакеты не установлены."
+no_matches = "Нет совпадений."
+
+[cmd_info]
+author_label = "Автор"
+version_label = "Версия"
+source_code_label = "Исходный код"
+links_label = "Ссылки"
+command_label = "Команда"
+installed_versions_label = "Установленные версии"
+installed_label = "Установлена"
+released_label = "Выпущена"
+source_label = "Источник"
+sha256_label = "SHA256"
+
+[cmd_doctor]
+check_header = "ПРОВЕРКА"
+status_header = "СТАТУС"
+details_header = "ДЕТАЛИ"
+repair_hint = "Проблем: {problems}, предупреждений: {warnings}. Запустите `lacie doctor --fix` для исправления."
+
+[cmd_gen_toml]
+created = "Создан lacie.toml"
+overwrite_prompt = "Перезаписать lacie.toml? [y/N]:"
+
+[cmd_config]
+differs_note = "* отличается от значения по умолчанию"
+reset_prompt = "Сбросить все параметры конфигурации к значениям по умолчанию? [y/N]:"
+
+[cmd_suicide]
+will_be_removed = "lacie будет удален полностью:"
+directory_label = "Директория"
+binary_label = "Бинарник"
+path_label = "PATH"
+scripts_label = "Скрипты"
+prompt = "Удалить lacie? [y/N]:"
