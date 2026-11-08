@@ -58,13 +58,7 @@ This guide covers installing and setting up the **Lacie** package manager on Lin
 
 ### Linux - Method 1: Ruby Installer (Recommended)
 
-Run the interactive installer using `curl` and `ruby`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
-```
-
-Or download the script and execute it locally:
+Download and run the interactive installer:
 
 ```bash
 curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
@@ -130,7 +124,8 @@ lacie init-lacie
 macOS includes Ruby out of the box or via Homebrew (`brew install ruby`). Run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 The installer detects whether you are running on Apple Silicon (`aarch64` / M1/M2/M3/M4) or Intel (`x86_64`), offers a choice of user installation paths (e.g. `~/.local/bin`), and finishes the setup.
@@ -198,12 +193,14 @@ If you have Ruby installed (e.g. via RubyInstaller or `winget install RubyInstal
 Ensure Ruby is installed (`pkg install ruby`):
 
 ```sh
-fetch -o - https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+fetch https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 Or using `curl`:
 ```sh
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 ### FreeBSD - Method 2: Manual Binary Download
@@ -226,7 +223,8 @@ lacie init-lacie
 Ensure Ruby and curl are installed (`pkg_add ruby curl`):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 ### OpenBSD - Method 2: Manual Binary Download
@@ -302,7 +300,8 @@ To upgrade Lacie to the newest release:
 1. **Via Ruby Installer:**
    Run `install.rb` and select option `2` (`Update / Reinstall Lacie`). The installer locates your existing `lacie` binary via `PATH` and atomically replaces it:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+   curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+   ruby install.rb
    ```
 
 2. **Via Nix:**

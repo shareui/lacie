@@ -12,7 +12,8 @@
 
 ### Unix (Linux, macOS, FreeBSD, OpenBSD)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 ### Nix (Linux & macOS)

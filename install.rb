@@ -2,8 +2,7 @@
 # frozen_string_literal: true
 
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
-#   or:
+#   curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
 #   ruby install.rb
 
 require 'net/http'
@@ -51,6 +50,7 @@ class LacieInstaller
   ].freeze
 
   def initialize
+    setup_interactive_terminal
     @styler = Styler.new
     @platform = detect_platform
     @existing_bin = find_existing_lacie
@@ -74,6 +74,20 @@ class LacieInstaller
   end
 
   private
+
+  def setup_interactive_terminal
+    return if $stdin.tty?
+
+    if File.exist?('/dev/tty')
+      $stdin.reopen('/dev/tty', 'r')
+    elsif (console = (IO.console rescue nil))
+      $stdin.reopen(console)
+    elsif RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/
+      $stdin.reopen('CONIN$', 'r') rescue nil
+    end
+  rescue SystemCallError, StandardError
+    # controlling terminal not accessible
+  end
 
   def setup_traps
     trap('INT') do
@@ -205,7 +219,10 @@ class LacieInstaller
     loop do
       print "#{@styler.bold_white('Choice [1, 2, q]:')} "
       $stdout.flush
-      input = $stdin.gets&.strip
+      raw = $stdin.gets
+      return :quit if raw.nil?
+
+      input = raw.strip
       case input
       when '1' then return :install
       when '2' then return :update
@@ -260,10 +277,12 @@ class LacieInstaller
     loop do
       print "#{@styler.bold_white("Select version [1-#{releases.size}, Enter for #{releases[0]['tag_name']}, q to quit]:")} "
       $stdout.flush
-      input = $stdin.gets&.strip
+      raw = $stdin.gets
+      return nil if raw.nil?
 
-      return nil if input&.casecmp('q')&.zero?
-      return releases[0] if input.nil? || input.empty?
+      input = raw.strip
+      return nil if input.casecmp('q').zero?
+      return releases[0] if input.empty?
 
       idx = input.to_i
       if idx >= 1 && idx <= releases.size
@@ -353,8 +372,10 @@ class LacieInstaller
     loop do
       print "#{@styler.bold_white("Select destination [1-#{writable.size}, a, m, q]:")} "
       $stdout.flush
-      input = $stdin.gets&.strip
+      raw = $stdin.gets
+      return nil if raw.nil?
 
+      input = raw.strip
       case input
       when 'q', 'Q' then return nil
       when 'a', 'A' then return select_from_all_dirs(path_data)
@@ -388,8 +409,10 @@ class LacieInstaller
     loop do
       print "#{@styler.bold_white("Select directory [1-#{all_dirs.size}, m, q]:")} "
       $stdout.flush
-      input = $stdin.gets&.strip
+      raw = $stdin.gets
+      return nil if raw.nil?
 
+      input = raw.strip
       case input
       when 'q', 'Q' then return nil
       when 'm', 'M' then return prompt_manual_directory
@@ -418,8 +441,10 @@ class LacieInstaller
     loop do
       print "#{@styler.bold_white('Select option [a, m, q]:')} "
       $stdout.flush
-      input = $stdin.gets&.strip
+      raw = $stdin.gets
+      return nil if raw.nil?
 
+      input = raw.strip
       case input
       when 'q', 'Q' then return nil
       when 'a', 'A' then return select_from_all_dirs(path_data)
@@ -434,15 +459,21 @@ class LacieInstaller
     loop do
       print "#{@styler.bold_white('Enter target directory path (e.g. ~/.local/bin):')} "
       $stdout.flush
-      input = $stdin.gets&.strip
-      return nil if input.nil? || input.empty? || input.casecmp('q').zero?
+      raw = $stdin.gets
+      return nil if raw.nil?
+
+      input = raw.strip
+      return nil if input.empty? || input.casecmp('q').zero?
 
       expanded = File.expand_path(input)
       unless Dir.exist?(expanded)
         print "Directory '#{expanded}' does not exist. Create it? [Y/n]: "
         $stdout.flush
-        confirm = $stdin.gets&.strip
-        if confirm.nil? || confirm.empty? || confirm.casecmp('y').zero?
+        confirm_raw = $stdin.gets
+        return nil if confirm_raw.nil?
+
+        confirm = confirm_raw.strip
+        if confirm.empty? || confirm.casecmp('y').zero?
           begin
             FileUtils.mkdir_p(expanded)
             puts "#{@styler.green('Created directory:')} #{expanded}"

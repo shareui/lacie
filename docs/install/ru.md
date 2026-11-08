@@ -58,13 +58,7 @@
 
 ### Linux - Способ 1: Интерактивный установщик Ruby (Рекомендуется)
 
-Запустите установщик одной командой через `curl` и `ruby`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
-```
-
-Либо скачайте скрипт и запустите его локально:
+Скачайте скрипт и запустите установщик локально:
 
 ```bash
 curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
@@ -130,7 +124,8 @@ lacie init-lacie
 В macOS интерпретатор Ruby доступен в системе или устанавливается через Homebrew (`brew install ruby`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 Скрипт определит процессор (Apple Silicon `aarch64` на чипах M1/M2/M3/M4 или Intel `x86_64`), предложит выбрать директорию (например, `~/.local/bin`) и завершит установку.
@@ -198,12 +193,14 @@ lacie init-lacie
 Убедитесь, что Ruby установлен (`pkg install ruby`):
 
 ```sh
-fetch -o - https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+fetch https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 Либо с помощью `curl`:
 ```sh
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 ### FreeBSD - Способ 2: Прямая загрузка бинарного файла
@@ -226,7 +223,8 @@ lacie init-lacie
 Убедитесь, что Ruby и curl установлены (`pkg_add ruby curl`):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+ruby install.rb
 ```
 
 ### OpenBSD - Способ 2: Прямая загрузка бинарного файла
@@ -302,7 +300,8 @@ lacie doctor --fix
 1. **Через установщик Ruby:**
    Запустите `install.rb` и выберите пункт `2` (`Update / Reinstall Lacie`). Скрипт найдет существующий исполняемый файл `lacie` в `$PATH` и атомарно заменит его:
    ```bash
-   curl -fsSL https://raw.githubusercontent.com/shareui/lacie/main/install.rb | ruby
+   curl -fsSL -O https://raw.githubusercontent.com/shareui/lacie/main/install.rb
+   ruby install.rb
    ```
 
 2. **Через Nix:**
