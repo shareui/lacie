@@ -30,9 +30,7 @@
             pkg-config
           ];
 
-          buildInputs = with pkgs; [
-            ruby
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.Security
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];

@@ -16,10 +16,6 @@ tar = "0.4"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 lzma-rs = "0.3"
 zstd = "0.13"
-magnus = "0.9.3"
-rb-sys = "0.9.130"
-rb-sys-build = "0.9.130"
-rb-sys-env = "0.2.3"
 
 [profile.release]
 opt-level = 3
