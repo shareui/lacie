@@ -12,6 +12,7 @@ require 'rbconfig'
 require 'fileutils'
 require 'tmpdir'
 require 'io/console'
+require 'open3'
 
 class Styler
   attr_reader :enabled
@@ -141,7 +142,7 @@ class LacieInstaller
     host_cpu = RbConfig::CONFIG['host_cpu'].to_s.downcase
 
     arch = case host_cpu
-           when /x86_64|amd64/ then 'x86_64'
+           when /x86_64|amd64|x64/ then 'x86_64'
            when /aarch64|arm64/ then 'aarch64'
            else host_cpu
            end
@@ -201,12 +202,16 @@ class LacieInstaller
   end
 
   def query_binary_version(bin_path)
-    output = `#{bin_path} -v 2>&1` rescue ''
+    output, status = Open3.capture2e(bin_path, '-v', binmode: true)
+    return nil unless status.success?
+
     if output =~ /v([\d\.]+)/
       Regexp.last_match(1)
     else
       nil
     end
+  rescue SystemCallError
+    nil
   end
 
   def prompt_main_menu
@@ -541,7 +546,7 @@ class LacieInstaller
         FileUtils.mv(temp_dest, dest_binary)
       else
         # If GitHub release asset is not yet available, fallback to local workspace build
-        install_from_local_or_stub(dest_binary)
+        install_from_local_build(dest_binary)
       end
 
       File.chmod(0o755, dest_binary) unless @platform[:is_windows]
@@ -599,28 +604,18 @@ class LacieInstaller
     false
   end
 
-  def install_from_local_or_stub(dest_binary)
+  def install_from_local_build(dest_binary)
     candidates = [
       File.join(__dir__, 'target', 'release', @platform[:bin_name]),
       File.join(__dir__, 'target', 'debug', @platform[:bin_name]),
-      File.join(__dir__, '..', 'public', 'target', 'release', @platform[:bin_name]),
-      @existing_bin
-    ].compact
+      File.join(__dir__, '..', 'public', 'target', 'release', @platform[:bin_name])
+    ]
 
     source_bin = candidates.find { |p| File.file?(p) && File.executable?(p) }
+    raise 'Release download failed and no local Lacie build was found.' unless source_bin
 
     FileUtils.mkdir_p(File.dirname(dest_binary))
-
-    if source_bin && File.expand_path(source_bin) != File.expand_path(dest_binary)
-      FileUtils.cp(source_bin, dest_binary)
-    elsif !File.exist?(dest_binary)
-      stub_content = <<~SH
-        #!/bin/sh
-        echo "Lacie package manager"
-        echo "Use lacie init-lacie to initialize."
-      SH
-      File.write(dest_binary, stub_content)
-    end
+    FileUtils.cp(source_bin, dest_binary) unless File.expand_path(source_bin) == File.expand_path(dest_binary)
   end
 
   def render_download_progress
