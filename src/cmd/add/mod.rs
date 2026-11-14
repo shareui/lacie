@@ -146,7 +146,8 @@ fn resolve_manifest(
     plugin: &mut Option<SourcePlugin>,
 ) -> Result<String, DiagError> {
     if parsed.is_local_file {
-        let path = PathBuf::from(&parsed.storage);
+        let storage_path = parsed.storage.strip_prefix("file://").unwrap_or(&parsed.storage);
+        let path = PathBuf::from(storage_path);
         if path.is_file() && path.file_name().and_then(|n| n.to_str()).unwrap_or("").ends_with(".toml") {
             return std::fs::read_to_string(&path).map_err(|e| DiagError::new("E015", e.to_string()));
         }
@@ -356,9 +357,43 @@ fn do_fetch_or_download(
         .unwrap_or_else(|| std::format!("{}-{}", pkg.name, target));
 
     if parsed.is_local_file {
-        let local_extracted = paths.var_dir.join("local_unpack").join(&filename);
-        if local_extracted.is_file() {
-            let _ = std::fs::copy(&local_extracted, temp_dest);
+        let storage_path = parsed.storage.strip_prefix("file://").unwrap_or(&parsed.storage);
+        let manifest_dir = Path::new(storage_path).parent();
+        let direct_file = Path::new(&filename);
+        let local_unpack = paths.var_dir.join("local_unpack");
+
+        let archive_extracted = if direct_file.is_relative() {
+            Some(local_unpack.join(&filename))
+        } else {
+            None
+        };
+        let archive_flat = Path::new(&filename)
+            .file_name()
+            .map(|n| local_unpack.join(n));
+
+        let local_src = if let Some(extracted) = archive_extracted.filter(|p| p.is_file()) {
+            Some(extracted)
+        } else if let Some(flat) = archive_flat.filter(|p| p.is_file()) {
+            Some(flat)
+        } else if direct_file.is_file() {
+            Some(direct_file.to_path_buf())
+        } else if let Some(dir) = manifest_dir.map(|d| d.join(&filename)).filter(|p| p.is_file()) {
+            Some(dir)
+        } else {
+            None
+        };
+
+        if let Some(src) = local_src {
+            if &src != temp_dest {
+                std::fs::copy(&src, temp_dest)
+                    .map_err(|e| DiagError::new("E015", std::format!("Failed to copy {} to {}: {}", src.display(), temp_dest.display(), e)))?;
+            }
+        } else if let Some(links) = &bin_entry.links
+            && let Some(url) = links.first()
+        {
+            crate::net::client::HttpClient::new().download_file(url, temp_dest)?;
+        } else {
+            return Err(DiagError::from_code("E014", &[("ref", &filename)]));
         }
     } else if let Some(p) = plugin {
         let release = parsed.release.as_deref().unwrap_or("latest");
@@ -436,7 +471,8 @@ fn execute_single_package_add(
     let filename = bin_entry.file.clone()
         .or_else(|| bin_entry.links.as_ref().and_then(|l| l.first()).and_then(|url| url.split('/').next_back().map(|s| s.to_string())))
         .unwrap_or_else(|| std::format!("{}-{}", pkg.name, target));
-    let temp_dest = ctx.paths.var_dir.join(&filename);
+    let clean_filename = Path::new(&filename).file_name().and_then(|n| n.to_str()).unwrap_or(&filename);
+    let temp_dest = ctx.paths.var_dir.join(clean_filename);
 
     println!("  {} {}", ctx.styler.green("Downloading"), filename);
     println!();
@@ -494,7 +530,8 @@ fn execute_multi_package_add(
         let filename = bin_entry.file.clone()
             .or_else(|| bin_entry.links.as_ref().and_then(|l| l.first()).and_then(|url| url.split('/').next_back().map(|s| s.to_string())))
             .unwrap_or_else(|| std::format!("{}-{}", pkg.name, target));
-        let temp_dest = ctx.paths.var_dir.join(&filename);
+        let clean_filename = Path::new(&filename).file_name().and_then(|n| n.to_str()).unwrap_or(&filename);
+        let temp_dest = ctx.paths.var_dir.join(clean_filename);
 
         let plugin_ref = &mut *ctx.plugin;
         let paths_ref = ctx.paths;
@@ -834,5 +871,61 @@ file = "core-bin"
         }).collect();
         assert_eq!(exact.len(), 1);
         assert_eq!(exact[0].storage, "shareui/nyano");
+    }
+
+    #[test]
+    fn test_local_toml_installation_lifecycle() {
+        let tmp = std::env::temp_dir().join("lacie_test_add_local_toml");
+        let _ = std::fs::remove_dir_all(&tmp);
+        let paths = LaciePaths::from_root(tmp.clone());
+        paths.ensure_all_dirs().unwrap();
+
+        let source_bin_dir = tmp.join("src_bin");
+        std::fs::create_dir_all(&source_bin_dir).unwrap();
+        let bin_path = source_bin_dir.join("test-bin");
+        let bin_content = b"#!/bin/sh\necho direct toml";
+        std::fs::write(&bin_path, bin_content).unwrap();
+
+        let sha = compute_sha256_file(&bin_path).unwrap();
+        let manifest_content = std::format!(
+            r#"[workspace]
+author = "shareui"
+version = "0.1.0"
+
+[packages."com.example.direct"]
+name = "direct"
+
+[packages."com.example.direct".binaries."linux-gnu-x86_64"]
+file = "{}"
+sha256 = "{}"
+size = {}
+"#,
+            bin_path.display(),
+            sha,
+            bin_content.len()
+        );
+
+        let manifest_path = tmp.join("direct.toml");
+        std::fs::write(&manifest_path, manifest_content).unwrap();
+
+        let cfg = Config {
+            init: true,
+            confirm: false,
+            auto_switch: true,
+            colors: "never".to_string(),
+            ..Default::default()
+        };
+
+        let args = vec![manifest_path.to_string_lossy().to_string(), "--force".to_string()];
+        let res = execute_add(&paths, &cfg, &args);
+        assert!(res.is_ok());
+
+        assert!(bin_path.is_file(), "Original source binary must not be deleted or moved!");
+        assert_eq!(std::fs::read(&bin_path).unwrap(), bin_content, "Original binary content must not be truncated!");
+
+        let active_bin = paths.active_dir.join("direct");
+        assert!(active_bin.exists());
+
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

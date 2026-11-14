@@ -160,7 +160,8 @@ fn apply_single_update(
     let resolved = manifest.resolve_package(&item.id)?;
     let bin_entry = resolved.binaries.get(&item.chosen_target).unwrap();
     let filename = bin_entry.file.clone().unwrap_or_else(|| std::format!("{}-{}", item.name, item.chosen_target));
-    let temp_dest = paths.var_dir.join(&filename);
+    let clean_filename = std::path::Path::new(&filename).file_name().and_then(|n| n.to_str()).unwrap_or(&filename);
+    let temp_dest = paths.var_dir.join(clean_filename);
 
     println!("  {} {}", styler.green("Downloading"), filename);
     println!();
@@ -237,7 +238,8 @@ fn apply_multi_updates(
         let resolved = manifest.resolve_package(&item.id)?;
         let bin_entry = resolved.binaries.get(&item.chosen_target).unwrap();
         let filename = bin_entry.file.clone().unwrap_or_else(|| std::format!("{}-{}", item.name, item.chosen_target));
-        let temp_dest = paths.var_dir.join(&filename);
+        let clean_filename = std::path::Path::new(&filename).file_name().and_then(|n| n.to_str()).unwrap_or(&filename);
+        let temp_dest = paths.var_dir.join(clean_filename);
 
         let mut plugin = SourcePlugin::load(&item.source, &paths.plugins_dir)?;
         let plugin_ref = &mut plugin;
