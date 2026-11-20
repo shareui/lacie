@@ -86,9 +86,13 @@ pub fn format(key: &str, args: &[(&str, &str)]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_lookup_fallback() {
+        let _guard = TEST_LOCK.lock().unwrap();
         set_language("ru");
         assert_eq!(t("general.yes"), "y");
         assert_eq!(t("cmd_init.q1_title"), "[1/5] Язык");
@@ -98,6 +102,7 @@ mod tests {
 
     #[test]
     fn test_format_parameters() {
+        let _guard = TEST_LOCK.lock().unwrap();
         set_language("en");
         let result = format("cmd_init.lacie_dir", &[("dir", "/test/lacie")]);
         assert_eq!(result, "lacie directory: /test/lacie");
