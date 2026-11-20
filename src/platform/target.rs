@@ -16,18 +16,25 @@ impl SystemTarget {
     }
 }
 
-pub fn detect_current_target(windows_priority: &str) -> SystemTarget {
+pub fn detect_current_target(windows_priority: &str, linux_priority: &str) -> SystemTarget {
     let arch_str = match current_arch() {
         ArchType::X86_64 => "x86_64",
         ArchType::Aarch64 => "aarch64",
         ArchType::Other => std::env::consts::ARCH,
     };
     match current_os() {
-        OsType::Linux => SystemTarget {
-            os: "linux".to_string(),
-            abi: Some("gnu".to_string()),
-            arch: arch_str.to_string(),
-        },
+        OsType::Linux => {
+            let abi = if linux_priority.to_lowercase() == "musl" {
+                "musl"
+            } else {
+                "gnu"
+            };
+            SystemTarget {
+                os: "linux".to_string(),
+                abi: Some(abi.to_string()),
+                arch: arch_str.to_string(),
+            }
+        }
         OsType::Windows => {
             let abi = if windows_priority.to_lowercase() == "mingw" {
                 "mingw"
@@ -77,18 +84,20 @@ pub fn match_target(
     available: &[(&str, bool)],
     current: &SystemTarget,
     windows_priority: &str,
+    linux_priority: &str,
 ) -> TargetMatchResult {
     let exact_str = current.as_str();
     if available.iter().any(|(t, _)| *t == exact_str) {
         return TargetMatchResult::Exact(exact_str);
     }
-    if current.os == "linux" && current.abi.as_deref() == Some("gnu") {
-        let musl_target = std::format!("linux-musl-{}", current.arch);
-        if let Some((_, is_static)) = available.iter().find(|(t, _)| *t == musl_target)
-            && (*is_static || has_musl_linker(&current.arch))
+    if current.os == "linux" {
+        let alt_abi = if linux_priority.to_lowercase() == "musl" { "gnu" } else { "musl" };
+        let alt_target = std::format!("linux-{}-{}", alt_abi, current.arch);
+        if let Some((_, is_static)) = available.iter().find(|(t, _)| *t == alt_target)
+            && (alt_abi != "musl" || *is_static || has_musl_linker(&current.arch))
         {
             return TargetMatchResult::Fallback {
-                target: musl_target,
+                target: alt_target,
                 preferred: exact_str,
             };
         }
@@ -118,7 +127,7 @@ mod tests {
             arch: "x86_64".to_string(),
         };
         let available = [("linux-gnu-x86_64", false), ("linux-musl-x86_64", true)];
-        let res = match_target(&available, &current, "msvc");
+        let res = match_target(&available, &current, "msvc", "glibc");
         assert_eq!(res, TargetMatchResult::Exact("linux-gnu-x86_64".to_string()));
     }
 
@@ -130,7 +139,7 @@ mod tests {
             arch: "x86_64".to_string(),
         };
         let available = [("linux-musl-x86_64", true)];
-        let res = match_target(&available, &current, "msvc");
+        let res = match_target(&available, &current, "msvc", "glibc");
         assert_eq!(
             res,
             TargetMatchResult::Fallback {

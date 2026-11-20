@@ -19,7 +19,9 @@ use diag::{exit_error, DiagError};
 
 fn dispatch_command(cmd: Commands, paths: &LaciePaths, cfg: &config::Config) -> Result<(), DiagError> {
     match cmd {
-        Commands::InitLacie => cmd::init::execute_init(paths),
+        Commands::InitLacie { question, recfg } => {
+            cmd::init::execute_init(paths, question.as_deref(), recfg)
+        }
         Commands::Explain { code } => {
             diag::explain::explain_command(&code)
                 .map_err(|msg| DiagError::new("E017", msg))

@@ -54,3 +54,40 @@ pub fn has_musl_linker(arch_str: &str) -> bool {
     }
     false
 }
+
+pub fn has_gnu_linker() -> bool {
+    let candidate_dirs = ["/lib", "/usr/lib", "/lib64", "/usr/local/lib"];
+    for dir in candidate_dirs {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                if entry.file_name().to_string_lossy().starts_with("ld-linux") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+pub fn detect_linux_libc() -> &'static str {
+    if let Ok(output) = std::process::Command::new("ldd").arg("--version").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+        if stdout.contains("musl") || stderr.contains("musl") {
+            return "musl";
+        }
+        if stdout.contains("gnu") || stdout.contains("glibc") || stderr.contains("gnu") || stderr.contains("glibc") {
+            return "glibc";
+        }
+    }
+    let arch_str = match current_arch() {
+        ArchType::X86_64 => "x86_64",
+        ArchType::Aarch64 => "aarch64",
+        ArchType::Other => std::env::consts::ARCH,
+    };
+    if has_musl_linker(arch_str) && !has_gnu_linker() {
+        "musl"
+    } else {
+        "glibc"
+    }
+}

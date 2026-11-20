@@ -14,6 +14,7 @@ use crate::state::seen::SeenDatabase;
 use crate::ui::color::{visible_len, ColorMode, Styler};
 use crate::ui::progress::{render_spinner, run_with_download_progress};
 use crate::ui::prompt::{prompt_yes_no, prompt_yes_no_view, PromptResult};
+use crate::ui::shorten_bin_path_display;
 use crate::ui::syntax::print_manifest_view;
 use crate::ui::viewer::{InteractiveViewer, ViewerAction, ViewerFile, ViewerFileType};
 use chrono::Utc;
@@ -343,6 +344,45 @@ pub struct DownloadContext<'a> {
     pub styler: &'a Styler,
 }
 
+fn resolve_local_binary_src(
+    pkg: &ResolvedPackage,
+    target: &str,
+    parsed: &ParsedAddRef,
+    paths: &LaciePaths,
+) -> Option<PathBuf> {
+    if !parsed.is_local_file {
+        return None;
+    }
+    let bin_entry = pkg.binaries.get(target)?;
+    let filename = bin_entry.file.clone()
+        .or_else(|| bin_entry.links.as_ref().and_then(|l| l.first()).and_then(|url| url.split('/').next_back().map(|s| s.to_string())))
+        .unwrap_or_else(|| std::format!("{}-{}", pkg.name, target));
+
+    let storage_path = parsed.storage.strip_prefix("file://").unwrap_or(&parsed.storage);
+    let manifest_dir = Path::new(storage_path).parent();
+    let direct_file = Path::new(&filename);
+    let local_unpack = paths.var_dir.join("local_unpack");
+
+    let archive_extracted = if direct_file.is_relative() {
+        Some(local_unpack.join(&filename))
+    } else {
+        None
+    };
+    let archive_flat = Path::new(&filename)
+        .file_name()
+        .map(|n| local_unpack.join(n));
+
+    if let Some(extracted) = archive_extracted.filter(|p| p.is_file()) {
+        Some(extracted)
+    } else if let Some(flat) = archive_flat.filter(|p| p.is_file()) {
+        Some(flat)
+    } else if direct_file.is_file() {
+        Some(direct_file.to_path_buf())
+    } else {
+        manifest_dir.map(|d| d.join(&filename)).filter(|p| p.is_file())
+    }
+}
+
 fn do_fetch_or_download(
     pkg: &ResolvedPackage,
     target: &str,
@@ -356,44 +396,10 @@ fn do_fetch_or_download(
         .or_else(|| bin_entry.links.as_ref().and_then(|l| l.first()).and_then(|url| url.split('/').next_back().map(|s| s.to_string())))
         .unwrap_or_else(|| std::format!("{}-{}", pkg.name, target));
 
-    if parsed.is_local_file {
-        let storage_path = parsed.storage.strip_prefix("file://").unwrap_or(&parsed.storage);
-        let manifest_dir = Path::new(storage_path).parent();
-        let direct_file = Path::new(&filename);
-        let local_unpack = paths.var_dir.join("local_unpack");
-
-        let archive_extracted = if direct_file.is_relative() {
-            Some(local_unpack.join(&filename))
-        } else {
-            None
-        };
-        let archive_flat = Path::new(&filename)
-            .file_name()
-            .map(|n| local_unpack.join(n));
-
-        let local_src = if let Some(extracted) = archive_extracted.filter(|p| p.is_file()) {
-            Some(extracted)
-        } else if let Some(flat) = archive_flat.filter(|p| p.is_file()) {
-            Some(flat)
-        } else if direct_file.is_file() {
-            Some(direct_file.to_path_buf())
-        } else if let Some(dir) = manifest_dir.map(|d| d.join(&filename)).filter(|p| p.is_file()) {
-            Some(dir)
-        } else {
-            None
-        };
-
-        if let Some(src) = local_src {
-            if &src != temp_dest {
-                std::fs::copy(&src, temp_dest)
-                    .map_err(|e| DiagError::new("E015", std::format!("Failed to copy {} to {}: {}", src.display(), temp_dest.display(), e)))?;
-            }
-        } else if let Some(links) = &bin_entry.links
-            && let Some(url) = links.first()
-        {
-            crate::net::client::HttpClient::new().download_file(url, temp_dest)?;
-        } else {
-            return Err(DiagError::from_code("E014", &[("ref", &filename)]));
+    if let Some(src) = resolve_local_binary_src(pkg, target, parsed, paths) {
+        if src != *temp_dest {
+            std::fs::copy(&src, temp_dest)
+                .map_err(|e| DiagError::new("E015", std::format!("Failed to copy {} to {}: {}", src.display(), temp_dest.display(), e)))?;
         }
     } else if let Some(p) = plugin {
         let release = parsed.release.as_deref().unwrap_or("latest");
@@ -402,6 +408,8 @@ fn do_fetch_or_download(
         && let Some(url) = links.first()
     {
         crate::net::client::HttpClient::new().download_file(url, temp_dest)?;
+    } else {
+        return Err(DiagError::from_code("E014", &[("ref", &filename)]));
     }
     Ok(())
 }
@@ -461,6 +469,45 @@ fn record_version_in_db(
     db.insert_version(&pkg.id, &pkg.name, None, version_entry);
 }
 
+fn fetch_single_package_binary(
+    pkg: &ResolvedPackage,
+    target: &str,
+    filename: &str,
+    clean_filename: &str,
+    temp_dest: &Path,
+    ctx: &mut DownloadContext,
+) -> Result<(), DiagError> {
+    let local_unpack = ctx.paths.var_dir.join("local_unpack");
+    if let Some(src) = resolve_local_binary_src(pkg, target, ctx.parsed, ctx.paths) {
+        let is_unpacked = src.starts_with(&local_unpack);
+        let action_verb = if is_unpacked { "Unpacking" } else { "Copying" };
+        println!("    {} {}", ctx.styler.green(action_verb), clean_filename);
+        if src != *temp_dest {
+            std::fs::copy(&src, temp_dest)
+                .map_err(|e| DiagError::new("E015", std::format!("Failed to copy {} to {}: {}", src.display(), temp_dest.display(), e)))?;
+        }
+        return Ok(());
+    }
+
+    println!("  {} {}", ctx.styler.green("Downloading"), filename);
+    println!();
+
+    let plugin_ref = &mut *ctx.plugin;
+    let paths_ref = ctx.paths;
+    let parsed_ref = ctx.parsed;
+    let bin_entry = pkg.binaries.get(target).unwrap();
+    run_with_download_progress(
+        "  ",
+        bin_entry.size,
+        temp_dest,
+        0,
+        ctx.styler,
+        || do_fetch_or_download(pkg, target, temp_dest, parsed_ref, plugin_ref, paths_ref),
+    )?;
+    println!();
+    Ok(())
+}
+
 fn execute_single_package_add(
     pkg: &ResolvedPackage,
     target: &str,
@@ -474,22 +521,8 @@ fn execute_single_package_add(
     let clean_filename = Path::new(&filename).file_name().and_then(|n| n.to_str()).unwrap_or(&filename);
     let temp_dest = ctx.paths.var_dir.join(clean_filename);
 
-    println!("  {} {}", ctx.styler.green("Downloading"), filename);
-    println!();
+    fetch_single_package_binary(pkg, target, &filename, clean_filename, &temp_dest, ctx)?;
 
-    let plugin_ref = &mut *ctx.plugin;
-    let paths_ref = ctx.paths;
-    let parsed_ref = ctx.parsed;
-    run_with_download_progress(
-        "  ",
-        bin_entry.size,
-        &temp_dest,
-        0,
-        ctx.styler,
-        || do_fetch_or_download(pkg, target, &temp_dest, parsed_ref, plugin_ref, paths_ref),
-    )?;
-
-    println!();
     render_spinner("Verifying sha256 checksum...", 300, ctx.styler);
     println!("    {} sha256 checksum {}", ctx.styler.green("Verifying"), ctx.styler.dim("(matches manifest)"));
 
@@ -499,7 +532,7 @@ fn execute_single_package_add(
 
     let active_bin = ctx.paths.active_dir.join(&pkg.name);
     activate_binary(&final_bin_path, &active_bin).map_err(|e| DiagError::new("E015", e.to_string()))?;
-    println!("    {} {} -> {}", ctx.styler.green("Activating"), active_bin.display(), final_bin_path.display());
+    println!("    {} {} -> {}", ctx.styler.green("Activating"), active_bin.display(), shorten_bin_path_display(&final_bin_path));
     if let Some(entry) = db.get_package_mut(&pkg.id) {
         entry.active = Some(pkg.version.clone());
     }
@@ -507,6 +540,41 @@ fn execute_single_package_add(
     let installed_title = std::format!("{} {}", pkg.name, pkg.version);
     println!("\n{} Installed {} (command: {}, {})", ctx.styler.bold_cyan("::"), ctx.styler.bold_white(&installed_title), ctx.styler.bold_white(&pkg.name), ctx.styler.green("active"));
     Ok(())
+}
+
+fn fetch_multi_package_binary(
+    pkg: &ResolvedPackage,
+    target: &str,
+    temp_dest: &Path,
+    step: &str,
+    prefix: &str,
+    max_prefix_width: usize,
+    ctx: &mut DownloadContext,
+) -> Result<(), DiagError> {
+    let local_unpack = ctx.paths.var_dir.join("local_unpack");
+    if let Some(src) = resolve_local_binary_src(pkg, target, ctx.parsed, ctx.paths) {
+        let is_unpacked = src.starts_with(&local_unpack);
+        let action_verb = if is_unpacked { "Unpacking" } else { "Copying" };
+        println!("  {} ({}) {}", ctx.styler.green(action_verb), ctx.styler.bold_cyan(step), pkg.name);
+        if src != *temp_dest {
+            std::fs::copy(&src, temp_dest)
+                .map_err(|e| DiagError::new("E015", std::format!("Failed to copy {} to {}: {}", src.display(), temp_dest.display(), e)))?;
+        }
+        return Ok(());
+    }
+
+    let plugin_ref = &mut *ctx.plugin;
+    let paths_ref = ctx.paths;
+    let parsed_ref = ctx.parsed;
+    let bin_entry = pkg.binaries.get(target).unwrap();
+    run_with_download_progress(
+        prefix,
+        bin_entry.size,
+        temp_dest,
+        max_prefix_width,
+        ctx.styler,
+        || do_fetch_or_download(pkg, target, temp_dest, parsed_ref, plugin_ref, paths_ref),
+    )
 }
 
 fn execute_multi_package_add(
@@ -533,17 +601,8 @@ fn execute_multi_package_add(
         let clean_filename = Path::new(&filename).file_name().and_then(|n| n.to_str()).unwrap_or(&filename);
         let temp_dest = ctx.paths.var_dir.join(clean_filename);
 
-        let plugin_ref = &mut *ctx.plugin;
-        let paths_ref = ctx.paths;
-        let parsed_ref = ctx.parsed;
-        run_with_download_progress(
-            &prefixes[i],
-            bin_entry.size,
-            &temp_dest,
-            max_prefix_width,
-            ctx.styler,
-            || do_fetch_or_download(pkg, target, &temp_dest, parsed_ref, plugin_ref, paths_ref),
-        )?;
+        let step = std::format!("{}/{}", i + 1, total_count);
+        fetch_multi_package_binary(pkg, target, &temp_dest, &step, &prefixes[i], max_prefix_width, ctx)?;
 
         let actual_sha = verify_and_get_sha(&temp_dest, bin_entry, ctx.opts, &filename)?;
         let final_bin_path = install_binary_to_bin(&temp_dest, ctx.paths, pkg, &actual_sha)?;
@@ -594,13 +653,13 @@ pub fn execute_add(paths: &LaciePaths, cfg: &Config, args: &[String]) -> Result<
 
     let manifest = WorkspaceManifest::parse(&manifest_text)?;
     let pkg_ids = select_packages(&manifest, &parsed.packages)?;
-    let sys_target = detect_current_target(&cfg.windows_priority);
+    let sys_target = detect_current_target(&cfg.windows_priority, &cfg.linux_priority);
 
     let mut resolved_list = Vec::new();
     for id in pkg_ids {
         let pkg = manifest.resolve_package(id)?;
         let avail: Vec<(&str, bool)> = pkg.binaries.iter().map(|(t, b)| (t.as_str(), b.is_static.unwrap_or(false))).collect();
-        let target_match = match_target(&avail, &sys_target, &cfg.windows_priority);
+        let target_match = match_target(&avail, &sys_target, &cfg.windows_priority, &cfg.linux_priority);
         let chosen_target = match target_match {
             TargetMatchResult::Exact(t) => t,
             TargetMatchResult::Fallback { target, preferred } => {

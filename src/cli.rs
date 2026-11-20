@@ -13,7 +13,12 @@ pub struct Cli {
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
     #[command(name = "init-lacie", about = "Initialize lacie working environment")]
-    InitLacie,
+    InitLacie {
+        #[arg(value_name = "QUESTION_ID")]
+        question: Option<String>,
+        #[arg(long = "recfg", help = "Re-ask already configured questions")]
+        recfg: bool,
+    },
     #[command(name = "explain", about = "Explain error or warning code")]
     Explain { code: String, },
     #[command(name = "gen-toml", about = "Generate lacie.toml template")]
@@ -113,7 +118,7 @@ pub enum Commands {
 pub fn is_exempt(cmd: Option<&Commands>) -> bool {
     matches!(
         cmd,
-        None | Some(Commands::InitLacie)
+        None | Some(Commands::InitLacie { .. })
             | Some(Commands::Explain { .. })
             | Some(Commands::GenToml)
             | Some(Commands::Validate { .. })

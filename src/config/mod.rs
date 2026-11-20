@@ -28,6 +28,8 @@ pub struct Config {
     pub default_source: String,
     #[serde(default = "default_windows_priority")]
     pub windows_priority: String,
+    #[serde(default = "default_linux_priority")]
+    pub linux_priority: String,
 }
 
 fn default_language() -> String {
@@ -58,6 +60,14 @@ fn default_windows_priority() -> String {
     "msvc".to_string()
 }
 
+pub fn default_linux_priority() -> String {
+    if crate::platform::current_os() == crate::platform::OsType::Linux {
+        crate::platform::detect_linux_libc().to_string()
+    } else {
+        "glibc".to_string()
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -71,6 +81,7 @@ impl Default for Config {
             cache_ttl: default_cache_ttl(),
             default_source: default_source(),
             windows_priority: default_windows_priority(),
+            linux_priority: default_linux_priority(),
         }
     }
 }

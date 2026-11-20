@@ -247,7 +247,7 @@ class LacieInstaller
     http.read_timeout = 5
 
     req = Net::HTTP::Get.new(uri)
-    req['User-Agent'] = 'lacie-installer/0.1.0'
+    req['User-Agent'] = 'lacie-installer/0.1.3'
     token = ENV['LACIE_GH_TOKEN'] || ENV['GITHUB_TOKEN']
     req['Authorization'] = "Bearer #{token}" if token && !token.empty?
 
@@ -575,7 +575,7 @@ class LacieInstaller
     http.read_timeout = 25
 
     req = Net::HTTP::Get.new(uri)
-    req['User-Agent'] = 'lacie-installer/0.1.0'
+    req['User-Agent'] = 'lacie-installer/0.1.3'
 
     token = ENV['LACIE_GH_TOKEN'] || ENV['GITHUB_TOKEN']
     # Do not forward GitHub token when redirected to AWS S3 pre-signed storage
@@ -638,15 +638,28 @@ class LacieInstaller
   end
 
   def launch_post_install(dest_binary)
-    puts "#{@styler.bold_cyan('::')} #{@styler.bold_white("Running 'lacie init-lacie' to configure your environment...")}"
-    puts
-
     unless File.executable?(dest_binary)
       puts "#{@styler.bold_red('Error:')} Installed binary is not executable: #{dest_binary}"
       exit 1
     end
 
-    system(dest_binary, 'init-lacie')
+    puts "#{@styler.bold_cyan('::')} #{@styler.bold_white('Initial Configuration')}"
+    print "#{@styler.bold_white('Run initial setup now? [Y/n]:')} "
+    $stdout.flush
+    raw = $stdin.gets
+    ans = raw ? raw.strip.downcase : 'y'
+    run_now = ans.empty? || ans == 'y' || ans == 'yes'
+
+    if run_now
+      puts
+      puts "#{@styler.bold_cyan('::')} #{@styler.bold_white("Running 'lacie init-lacie' to configure your environment...")}"
+      puts
+      system(dest_binary, 'init-lacie')
+    else
+      puts
+      puts "   #{@styler.dim("Skipped. You can run 'lacie init-lacie' later to configure your environment.")}"
+      puts
+    end
   end
 end
 

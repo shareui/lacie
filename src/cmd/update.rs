@@ -12,6 +12,7 @@ use crate::state::seen::SeenDatabase;
 use crate::ui::color::{visible_len, ColorMode, Styler};
 use crate::ui::progress::{render_spinner, run_with_download_progress};
 use crate::ui::prompt::prompt_yes_no;
+use crate::ui::shorten_bin_path_display;
 use chrono::Utc;
 use std::collections::HashMap;
 
@@ -90,9 +91,9 @@ fn check_package_update(
     let manifest_text = plugin.manifest(&current_entry.storage, &newest.tag).ok()?;
     let manifest = WorkspaceManifest::parse(&manifest_text).ok()?;
     let resolved = manifest.resolve_package(id).ok()?;
-    let sys_target = detect_current_target(&cfg.windows_priority);
+    let sys_target = detect_current_target(&cfg.windows_priority, &cfg.linux_priority);
     let avail: Vec<(&str, bool)> = resolved.binaries.iter().map(|(t, b)| (t.as_str(), b.is_static.unwrap_or(false))).collect();
-    let chosen_target = match match_target(&avail, &sys_target, &cfg.windows_priority) {
+    let chosen_target = match match_target(&avail, &sys_target, &cfg.windows_priority, &cfg.linux_priority) {
         TargetMatchResult::Exact(t) => t,
         TargetMatchResult::Fallback { target, .. } => target,
         TargetMatchResult::NotFound => return None,
@@ -206,7 +207,7 @@ fn apply_single_update(
     if cfg.auto_switch {
         let active_bin = paths.active_dir.join(&item.name);
         activate_binary(&final_bin_path, &active_bin).map_err(|e| DiagError::new("E015", e.to_string()))?;
-        println!("    {} {} -> {}", styler.green("Activating"), active_bin.display(), final_bin_path.display());
+        println!("    {} {} -> {}", styler.green("Activating"), active_bin.display(), shorten_bin_path_display(&final_bin_path));
         if let Some(pkg) = db.get_package_mut(&item.id) {
             pkg.active = Some(item.new_version.clone());
         }

@@ -1,9 +1,8 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag_name:
@@ -142,9 +141,8 @@ jobs:
       - name: Verify release assets
         run: ls -la release_binaries/
 
-      - name: Publish Release to GitHub
+      - name: Upload Binaries to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: release_binaries/*
-          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
-          generate_release_notes: true
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag_name || github.ref_name }}

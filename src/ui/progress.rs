@@ -7,10 +7,21 @@ use std::thread::sleep;
 use std::time::Duration;
 
 pub fn get_terminal_width() -> usize {
-    std::env::var("COLUMNS")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(80)
+    if let Ok(cols) = std::env::var("COLUMNS")
+        && let Ok(w) = cols.parse::<usize>()
+        && w > 0
+    {
+        return w;
+    }
+    #[cfg(unix)]
+    if let Ok(out) = std::process::Command::new("tput").arg("cols").output()
+        && let Ok(s) = std::str::from_utf8(&out.stdout)
+        && let Ok(w) = s.trim().parse::<usize>()
+        && w > 0
+    {
+        return w;
+    }
+    80
 }
 
 pub struct ProgressMetrics {
@@ -45,25 +56,53 @@ pub fn make_metrics(current_bytes: u64, total_bytes: Option<u64>, speed_mb: f64)
     }
 }
 
+fn format_arrow_bar(bar_width: usize, filled: usize) -> String {
+    if bar_width == 0 {
+        return String::new();
+    }
+    let filled = filled.min(bar_width);
+    if filled == 0 {
+        " ".repeat(bar_width)
+    } else if filled == bar_width {
+        "-".repeat(bar_width)
+    } else {
+        std::format!("{}>{}", "-".repeat(filled - 1), " ".repeat(bar_width - filled))
+    }
+}
+
 fn build_indeterminate_bar(bar_width: usize, tick: usize, is_done: bool) -> String {
     if is_done {
-        return std::format!(" [{}]", "#".repeat(bar_width));
+        return std::format!(" [{}]", format_arrow_bar(bar_width, bar_width));
     }
     let block_len = 5.min(bar_width);
     let cycle = (bar_width.saturating_sub(block_len)) * 2;
-    let pos = if cycle == 0 {
-        0
+    let (arrow, left, right) = if cycle == 0 {
+        let shape = if block_len > 1 {
+            std::format!("{}>", "-".repeat(block_len - 1))
+        } else {
+            ">".to_string()
+        };
+        (shape, 0, bar_width.saturating_sub(block_len))
     } else {
         let t = tick % cycle;
         if t <= bar_width - block_len {
-            t
+            let shape = if block_len > 1 {
+                std::format!("{}>", "-".repeat(block_len - 1))
+            } else {
+                ">".to_string()
+            };
+            (shape, t, bar_width - t - block_len)
         } else {
-            cycle - t
+            let left = cycle - t;
+            let shape = if block_len > 1 {
+                std::format!("<{}", "-".repeat(block_len - 1))
+            } else {
+                "<".to_string()
+            };
+            (shape, left, bar_width - left - block_len)
         }
     };
-    let left = pos;
-    let right = bar_width - left - block_len;
-    std::format!(" [{}{}{}]", " ".repeat(left), "#".repeat(block_len), " ".repeat(right))
+    std::format!(" [{}{}{}]", " ".repeat(left), arrow, " ".repeat(right))
 }
 
 pub fn build_progress_line(
@@ -95,7 +134,8 @@ pub fn build_progress_line(
         if bar_space >= 6 {
             let bar_width = if min_prefix_width > 0 { bar_space.min(50) } else { bar_space };
             let filled = if is_done { bar_width } else { ((fraction * bar_width as f64) as usize).min(bar_width) };
-            let bar_str = std::format!(" [{}{}]", "#".repeat(filled), " ".repeat(bar_width - filled));
+            let bar_content = format_arrow_bar(bar_width, filled);
+            let bar_str = std::format!(" [{}]", bar_content);
             let gap = avail.saturating_sub(bar_str.len() + stats_len);
             if gap > 0 {
                 padded_prefix.push_str(&" ".repeat(gap));
@@ -281,4 +321,30 @@ pub fn render_spinner(text: &str, duration_ms: u64, styler: &Styler) {
     }
     print!("\r\x1b[K");
     let _ = stdout().flush();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_arrow_bar() {
+        assert_eq!(format_arrow_bar(0, 0), "");
+        assert_eq!(format_arrow_bar(10, 0), "          ");
+        assert_eq!(format_arrow_bar(10, 1), ">         ");
+        assert_eq!(format_arrow_bar(10, 5), "---->     ");
+        assert_eq!(format_arrow_bar(10, 6), "----->    ");
+        assert_eq!(format_arrow_bar(10, 10), "----------");
+        assert_eq!(format_arrow_bar(10, 15), "----------");
+    }
+
+    #[test]
+    fn test_indeterminate_bar_width() {
+        for w in [5, 10, 20, 50] {
+            let bar = build_indeterminate_bar(w, 3, false);
+            assert_eq!(bar.len(), w + 3);
+            let done_bar = build_indeterminate_bar(w, 0, true);
+            assert_eq!(done_bar.len(), w + 3);
+        }
+    }
 }

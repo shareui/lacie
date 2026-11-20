@@ -18,7 +18,7 @@ impl HttpClient {
     pub fn new() -> Self {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(30))
-            .user_agent("lacie/0.1.0")
+            .user_agent(concat!("lacie/", env!("CARGO_PKG_VERSION")))
             .build()
             .unwrap_or_default();
         Self { client }
